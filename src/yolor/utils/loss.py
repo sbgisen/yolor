@@ -3,8 +3,8 @@
 import torch
 import torch.nn as nn
 
-from utils.general import bbox_iou
-from utils.torch_utils import is_parallel
+from yolor.utils.general import bbox_iou
+from yolor.utils.torch_utils import is_parallel
 
 
 def smooth_BCE(eps=0.1):  # https://github.com/ultralytics/yolov3/issues/238#issuecomment-598028441
@@ -61,7 +61,7 @@ class FocalLoss(nn.Module):
 
 def compute_loss(p, targets, model):  # predictions, targets, model
     device = targets.device
-    #print(device)
+    # print(device)
     lcls, lbox, lobj = torch.zeros(1, device=device), torch.zeros(1, device=device), torch.zeros(1, device=device)
     tcls, tbox, indices, anchors = build_targets(p, targets, model)  # targets
     h = model.hyp  # hyperparameters
@@ -163,11 +163,10 @@ def build_targets(p, targets, model):
         gi, gj = gij.T  # grid xy indices
 
         # Append
-        #indices.append((b, a, gj, gi))  # image, anchor, grid indices
+        # indices.append((b, a, gj, gi))  # image, anchor, grid indices
         indices.append((b, a, gj.clamp_(0, gain[3] - 1), gi.clamp_(0, gain[2] - 1)))  # image, anchor, grid indices
         tbox.append(torch.cat((gxy - gij, gwh), 1))  # box
         anch.append(anchors[a])  # anchors
         tcls.append(c)  # class
 
     return tcls, tbox, indices, anch
-

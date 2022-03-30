@@ -21,17 +21,17 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 import test  # import test.py to get mAP after each epoch
-#from models.yolo import Model
-from models.models import *
-from utils.autoanchor import check_anchors
-from utils.datasets import create_dataloader9 as create_dataloader
-from utils.general import labels_to_class_weights, increment_path, labels_to_image_weights, init_seeds, \
+#from yolor.models.yolo import Model
+from yolor.models.models import *
+from yolor.utils.autoanchor import check_anchors
+from yolor.utils.datasets import create_dataloader9 as create_dataloader
+from yolor.utils.general import labels_to_class_weights, increment_path, labels_to_image_weights, init_seeds, \
     fitness, fitness_p, fitness_r, fitness_ap50, fitness_ap, fitness_f, strip_optimizer, get_latest_run,\
     check_dataset, check_file, check_git_status, check_img_size, print_mutation, set_logging
-from utils.google_utils import attempt_download
-from utils.loss import compute_loss
-from utils.plots import plot_images, plot_labels, plot_results, plot_evolution
-from utils.torch_utils import ModelEMA, select_device, intersect_dicts, torch_distributed_zero_first
+from yolor.utils.google_utils import attempt_download
+from yolor.utils.loss import compute_loss
+from yolor.utils.plots import plot_images, plot_labels, plot_results, plot_evolution
+from yolor.utils.torch_utils import ModelEMA, select_device, intersect_dicts, torch_distributed_zero_first
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +40,7 @@ try:
 except ImportError:
     wandb = None
     logger.info("Install Weights & Biases for experiment logging via 'pip install wandb' (recommended)")
+
 
 def train(hyp, opt, device, tb_writer=None, wandb=None):
     logger.info(f'Hyperparameters {hyp}')
@@ -69,7 +70,8 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
         check_dataset(data_dict)  # check
     train_path = data_dict['train']
     test_path = data_dict['val']
-    nc, names = (1, ['item']) if opt.single_cls else (int(data_dict['nc']), data_dict['names'])  # number classes, names
+    nc, names = (1, ['item']) if opt.single_cls else (
+        int(data_dict['nc']), data_dict['names'])  # number classes, names
     assert len(names) == nc, '%g names found for nc=%g dataset in %s' % (len(names), nc, opt.data)  # check
 
     # Model
@@ -83,7 +85,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
         model.load_state_dict(state_dict, strict=False)
         print('Transferred %g/%g items from %s' % (len(state_dict), len(model.state_dict()), weights))  # report
     else:
-        model = Darknet(opt.cfg).to(device) # create
+        model = Darknet(opt.cfg).to(device)  # create
 
     # Optimizer
     nbs = 64  # nominal batch size
@@ -115,7 +117,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
 
     # Scheduler https://arxiv.org/pdf/1812.01187.pdf
     # https://pytorch.org/docs/stable/_modules/torch/optim/lr_scheduler.html#OneCycleLR
-    lf = lambda x: ((1 + math.cos(x * math.pi / epochs)) / 2) * (1 - hyp['lrf']) + hyp['lrf']  # cosine
+    def lf(x): return ((1 + math.cos(x * math.pi / epochs)) / 2) * (1 - hyp['lrf']) + hyp['lrf']  # cosine
     scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=lf)
     # plot_lr_scheduler(optimizer, scheduler, epochs)
 
@@ -158,7 +160,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
         del ckpt, state_dict
 
     # Image sizes
-    gs = 64 #int(max(model.stride))  # grid size (max stride)
+    gs = 64  # int(max(model.stride))  # grid size (max stride)
     imgsz, imgsz_test = [check_img_size(x, gs) for x in opt.img_size]  # verify imgsz are gs-multiples
 
     # DP mode
@@ -188,7 +190,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
     # Process 0
     if rank in [-1, 0]:
         ema.updates = start_epoch * nb // accumulate  # set EMA updates
-        testloader = create_dataloader(test_path, imgsz_test, batch_size*2, gs, opt,
+        testloader = create_dataloader(test_path, imgsz_test, batch_size * 2, gs, opt,
                                        hyp=hyp, cache=opt.cache_images and not opt.notest, rect=True,
                                        rank=-1, world_size=opt.world_size, workers=opt.workers)[0]  # testloader
 
@@ -227,10 +229,12 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
     logger.info('Image sizes %g train, %g test\n'
                 'Using %g dataloader workers\nLogging results to %s\n'
                 'Starting training for %g epochs...' % (imgsz, imgsz_test, dataloader.num_workers, save_dir, epochs))
-    
+
     torch.save(model, wdir / 'init.pt')
-    
-    for epoch in range(start_epoch, epochs):  # epoch ------------------------------------------------------------------
+
+    for epoch in range(
+            start_epoch,
+            epochs):  # epoch ------------------------------------------------------------------
         model.train()
 
         # Update image weights (optional)
@@ -270,7 +274,8 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
                 accumulate = max(1, np.interp(ni, xi, [1, nbs / total_batch_size]).round())
                 for j, x in enumerate(optimizer.param_groups):
                     # bias lr falls from 0.1 to lr0, all other lrs rise from 0.0 to lr0
-                    x['lr'] = np.interp(ni, xi, [hyp['warmup_bias_lr'] if j == 2 else 0.0, x['initial_lr'] * lf(epoch)])
+                    x['lr'] = np.interp(ni, xi, [hyp['warmup_bias_lr'] if j ==
+                                        2 else 0.0, x['initial_lr'] * lf(epoch)])
                     if 'momentum' in x:
                         x['momentum'] = np.interp(ni, xi, [hyp['warmup_momentum'], hyp['momentum']])
 
@@ -318,8 +323,8 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
                 elif plots and ni == 3 and wandb:
                     wandb.log({"Mosaics": [wandb.Image(str(x), caption=x.name) for x in save_dir.glob('train*.jpg')]})
 
-            # end batch ------------------------------------------------------------------------------------------------
-        # end epoch ----------------------------------------------------------------------------------------------------
+            # end batch --------------------------------------------------------------
+        # end epoch --------------------------------------------------------------
 
         # Scheduler
         lr = [x['lr'] for x in optimizer.param_groups]  # for tensorboard
@@ -334,14 +339,14 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
             if not opt.notest or final_epoch:  # Calculate mAP
                 if epoch >= 3:
                     results, maps, times = test.test(opt.data,
-                                                 batch_size=batch_size*2,
-                                                 imgsz=imgsz_test,
-                                                 model=ema.ema.module if hasattr(ema.ema, 'module') else ema.ema,
-                                                 single_cls=opt.single_cls,
-                                                 dataloader=testloader,
-                                                 save_dir=save_dir,
-                                                 plots=plots and final_epoch,
-                                                 log_imgs=opt.log_imgs if wandb else 0)
+                                                     batch_size=batch_size * 2,
+                                                     imgsz=imgsz_test,
+                                                     model=ema.ema.module if hasattr(ema.ema, 'module') else ema.ema,
+                                                     single_cls=opt.single_cls,
+                                                     dataloader=testloader,
+                                                     save_dir=save_dir,
+                                                     plots=plots and final_epoch,
+                                                     log_imgs=opt.log_imgs if wandb else 0)
 
             # Write
             with open(results_file, 'a') as f:
@@ -364,10 +369,12 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
             fi = fitness(np.array(results).reshape(1, -1))  # weighted combination of [P, R, mAP@.5, mAP@.5-.95]
             fi_p = fitness_p(np.array(results).reshape(1, -1))  # weighted combination of [P, R, mAP@.5, mAP@.5-.95]
             fi_r = fitness_r(np.array(results).reshape(1, -1))  # weighted combination of [P, R, mAP@.5, mAP@.5-.95]
-            fi_ap50 = fitness_ap50(np.array(results).reshape(1, -1))  # weighted combination of [P, R, mAP@.5, mAP@.5-.95]
+            # weighted combination of [P, R, mAP@.5, mAP@.5-.95]
+            fi_ap50 = fitness_ap50(np.array(results).reshape(1, -1))
             fi_ap = fitness_ap(np.array(results).reshape(1, -1))  # weighted combination of [P, R, mAP@.5, mAP@.5-.95]
             if (fi_p > 0.0) or (fi_r > 0.0):
-                fi_f = fitness_f(np.array(results).reshape(1, -1))  # weighted combination of [P, R, mAP@.5, mAP@.5-.95]
+                # weighted combination of [P, R, mAP@.5, mAP@.5-.95]
+                fi_f = fitness_f(np.array(results).reshape(1, -1))
             else:
                 fi_f = 0.0
             if fi > best_fitness:
@@ -419,14 +426,14 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
                     torch.save(ckpt, wdir / 'best_f.pt')
                 if epoch == 0:
                     torch.save(ckpt, wdir / 'epoch_{:03d}.pt'.format(epoch))
-                if ((epoch+1) % 25) == 0:
+                if ((epoch + 1) % 25) == 0:
                     torch.save(ckpt, wdir / 'epoch_{:03d}.pt'.format(epoch))
-                if epoch >= (epochs-5):
+                if epoch >= (epochs - 5):
                     torch.save(ckpt, wdir / 'last_{:03d}.pt'.format(epoch))
-                elif epoch >= 420: 
+                elif epoch >= 420:
                     torch.save(ckpt, wdir / 'last_{:03d}.pt'.format(epoch))
                 del ckpt
-        # end epoch ----------------------------------------------------------------------------------------------------
+        # end epoch --------------------------------------------------------------
     # end training
 
     if rank in [-1, 0]:
@@ -507,7 +514,8 @@ if __name__ == '__main__':
         assert len(opt.cfg) or len(opt.weights), 'either --cfg or --weights must be specified'
         opt.img_size.extend([opt.img_size[-1]] * (2 - len(opt.img_size)))  # extend to 2 sizes (train, test)
         opt.name = 'evolve' if opt.evolve else opt.name
-        opt.save_dir = increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok | opt.evolve)  # increment run
+        opt.save_dir = increment_path(Path(opt.project) /
+                                      opt.name, exist_ok=opt.exist_ok | opt.evolve)  # increment run
 
     # DDP mode
     device = select_device(opt.device, batch_size=opt.batch_size)

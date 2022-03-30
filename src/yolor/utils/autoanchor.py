@@ -44,7 +44,8 @@ def check_anchors(dataset, model, thr=4.0, imgsz=640):
         if new_bpr > bpr:  # replace anchors
             new_anchors = torch.tensor(new_anchors, device=m.anchors.device).type_as(m.anchors)
             m.anchor_grid[:] = new_anchors.clone().view_as(m.anchor_grid)  # for inference
-            m.anchors[:] = new_anchors.clone().view_as(m.anchors) / m.stride.to(m.anchors.device).view(-1, 1, 1)  # loss
+            m.anchors[:] = new_anchors.clone().view_as(
+                m.anchors) / m.stride.to(m.anchors.device).view(-1, 1, 1)  # loss
             check_anchor_order(m)
             print('New anchors saved to model. Update model *.yaml to use these anchors in the future.')
         else:
@@ -67,7 +68,7 @@ def kmean_anchors(path='./data/coco128.yaml', n=9, img_size=640, thr=4.0, gen=10
             k: kmeans evolved anchors
 
         Usage:
-            from utils.general import *; _ = kmean_anchors()
+            from yolor.utils.general import *; _ = kmean_anchors()
     """
     thr = 1. / thr
 
@@ -95,7 +96,7 @@ def kmean_anchors(path='./data/coco128.yaml', n=9, img_size=640, thr=4.0, gen=10
     if isinstance(path, str):  # *.yaml file
         with open(path) as f:
             data_dict = yaml.load(f, Loader=yaml.FullLoader)  # model dict
-        from utils.datasets import LoadImagesAndLabels
+        from yolor.utils.datasets import LoadImagesAndLabels
         dataset = LoadImagesAndLabels(data_dict['train'], augment=True, rect=True)
     else:
         dataset = path  # dataset

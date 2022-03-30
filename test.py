@@ -9,16 +9,17 @@ import torch
 import yaml
 from tqdm import tqdm
 
-from utils.google_utils import attempt_load
-from utils.datasets import create_dataloader
-from utils.general import coco80_to_coco91_class, check_dataset, check_file, check_img_size, box_iou, \
+from yolor.utils.google_utils import attempt_load
+from yolor.utils.datasets import create_dataloader
+from yolor.utils.general import coco80_to_coco91_class, check_dataset, check_file, check_img_size, box_iou, \
     non_max_suppression, scale_coords, xyxy2xywh, xywh2xyxy, clip_coords, set_logging, increment_path
-from utils.loss import compute_loss
-from utils.metrics import ap_per_class
-from utils.plots import plot_images, output_to_target
-from utils.torch_utils import select_device, time_synchronized
+from yolor.utils.loss import compute_loss
+from yolor.utils.metrics import ap_per_class
+from yolor.utils.plots import plot_images, output_to_target
+from yolor.utils.torch_utils import select_device, time_synchronized
 
-from models.models import *
+from yolor.models.models import *
+
 
 def load_classes(path):
     # Loads *.names file at 'path'
@@ -67,7 +68,7 @@ def test(data,
             ckpt = torch.load(weights[0], map_location=device)  # load checkpoint
             ckpt['model'] = {k: v for k, v in ckpt['model'].items() if model.state_dict()[k].numel() == v.numel()}
             model.load_state_dict(ckpt['model'], strict=False)
-        except:
+        except BaseException:
             load_darknet_weights(model, weights[0])
         imgsz = check_img_size(imgsz, s=64)  # check img_size
 
@@ -103,7 +104,7 @@ def test(data,
     seen = 0
     try:
         names = model.names if hasattr(model, 'names') else model.module.names
-    except:
+    except BaseException:
         names = load_classes(opt.names)
     coco91class = coco80_to_coco91_class()
     s = ('%20s' + '%12s' * 6) % ('Class', 'Images', 'Targets', 'P', 'R', 'mAP@.5', 'mAP@.5:.95')
@@ -315,30 +316,30 @@ if __name__ == '__main__':
     opt.data = check_file(opt.data)  # check file
     print(opt)
 
-    if opt.task in ['val', 'test']:  # run normally
-        test(opt.data,
-             opt.weights,
-             opt.batch_size,
-             opt.img_size,
-             opt.conf_thres,
-             opt.iou_thres,
-             opt.save_json,
-             opt.single_cls,
-             opt.augment,
-             opt.verbose,
-             save_txt=opt.save_txt,
-             save_conf=opt.save_conf,
-             )
+    # if opt.task in ['val', 'test']:  # run normally
+    #     test(opt.data,
+    #          opt.weights,
+    #          opt.batch_size,
+    #          opt.img_size,
+    #          opt.conf_thres,
+    #          opt.iou_thres,
+    #          opt.save_json,
+    #          opt.single_cls,
+    #          opt.augment,
+    #          opt.verbose,
+    #          save_txt=opt.save_txt,
+    #          save_conf=opt.save_conf,
+    #          )
 
-    elif opt.task == 'study':  # run over a range of settings and save/plot
-        for weights in ['yolor_p6.pt', 'yolor_w6.pt']:
-            f = 'study_%s_%s.txt' % (Path(opt.data).stem, Path(weights).stem)  # filename to save to
-            x = list(range(320, 800, 64))  # x axis
-            y = []  # y axis
-            for i in x:  # img-size
-                print('\nRunning %s point %s...' % (f, i))
-                r, _, t = test(opt.data, weights, opt.batch_size, i, opt.conf_thres, opt.iou_thres, opt.save_json)
-                y.append(r + t)  # results and times
-            np.savetxt(f, y, fmt='%10.4g')  # save
-        os.system('zip -r study.zip study_*.txt')
-        # utils.general.plot_study_txt(f, x)  # plot
+    # elif opt.task == 'study':  # run over a range of settings and save/plot
+    #     for weights in ['yolor_p6.pt', 'yolor_w6.pt']:
+    #         f = 'study_%s_%s.txt' % (Path(opt.data).stem, Path(weights).stem)  # filename to save to
+    #         x = list(range(320, 800, 64))  # x axis
+    #         y = []  # y axis
+    #         for i in x:  # img-size
+    #             print('\nRunning %s point %s...' % (f, i))
+    #             r, _, t = test(opt.data, weights, opt.batch_size, i, opt.conf_thres, opt.iou_thres, opt.save_json)
+    #             y.append(r + t)  # results and times
+    #         np.savetxt(f, y, fmt='%10.4g')  # save
+    #     os.system('zip -r study.zip study_*.txt')
+    # utils.general.plot_study_txt(f, x)  # plot

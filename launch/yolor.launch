@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="front_camera" default="hand_camera"/>
+  <arg name="color" default="/$(arg front_camera)/color/image_rect_color"/>
+  <arg name="depth" default="/$(arg front_camera)/depth_registered/image_raw"/>
+  <node name="yolo" pkg="yolor" type="recognition.py" output="screen">
+    <remap from="~color" to="$(arg color)"/>
+    <!-- <remap from="~depth" to="$(arg depth)"/> -->
+  </node>
+</launch>

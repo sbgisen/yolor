@@ -17,9 +17,9 @@ import numpy as np
 import torch
 import yaml
 
-from utils.google_utils import gsutil_getsize
-from utils.metrics import fitness, fitness_p, fitness_r, fitness_ap50, fitness_ap, fitness_f   
-from utils.torch_utils import init_torch_seeds
+from yolor.utils.google_utils import gsutil_getsize
+from yolor.utils.metrics import fitness, fitness_p, fitness_r, fitness_ap50, fitness_ap, fitness_f
+from yolor.utils.torch_utils import init_torch_seeds
 
 # Set printoptions
 torch.set_printoptions(linewidth=320, precision=5, profile='long')
@@ -51,7 +51,9 @@ def get_latest_run(search_dir='.'):
 def check_git_status():
     # Suggest 'git pull' if repo is out of date
     if platform.system() in ['Linux', 'Darwin'] and not os.path.isfile('/.dockerenv'):
-        s = subprocess.check_output('if [ -d .git ]; then git fetch && git status -uno; fi', shell=True).decode('utf-8')
+        s = subprocess.check_output(
+            'if [ -d .git ]; then git fetch && git status -uno; fi',
+            shell=True).decode('utf-8')
         if 'Your branch is behind' in s:
             print(s[s.find('Your branch is behind'):s.find('\n\n')] + '\n')
 
@@ -222,19 +224,19 @@ def bbox_iou(box1, box2, x1y1x2y2=True, GIoU=False, DIoU=False, CIoU=False, EIoU
                 with torch.no_grad():
                     alpha = v / ((1 + eps) - iou + v)
                 return iou - (rho2 / c2 + v * alpha)  # CIoU
-            elif EIoU: # Efficient IoU https://arxiv.org/abs/2101.08158
-                rho3 = (w1-w2) **2
+            elif EIoU:  # Efficient IoU https://arxiv.org/abs/2101.08158
+                rho3 = (w1 - w2) ** 2
                 c3 = cw ** 2 + eps
-                rho4 = (h1-h2) **2
+                rho4 = (h1 - h2) ** 2
                 c4 = ch ** 2 + eps
                 return iou - rho2 / c2 - rho3 / c3 - rho4 / c4  # EIoU
             elif ECIoU:
                 v = (4 / math.pi ** 2) * torch.pow(torch.atan(w2 / h2) - torch.atan(w1 / h1), 2)
                 with torch.no_grad():
                     alpha = v / ((1 + eps) - iou + v)
-                rho3 = (w1-w2) **2
+                rho3 = (w1 - w2) ** 2
                 c3 = cw ** 2 + eps
-                rho4 = (h1-h2) **2
+                rho4 = (h1 - h2) ** 2
                 c4 = ch ** 2 + eps
                 return iou - v * alpha - rho2 / c2 - rho3 / c3 - rho4 / c4  # ECIoU
         else:  # GIoU https://arxiv.org/pdf/1902.09630.pdf
@@ -356,14 +358,14 @@ def non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6, merge=False, 
     return output
 
 
-def strip_optimizer(f='weights/best.pt', s=''):  # from utils.general import *; strip_optimizer()
+def strip_optimizer(f='weights/best.pt', s=''):  # from yolor.utils.general import *; strip_optimizer()
     # Strip optimizer from 'f' to finalize training, optionally save as 's'
     x = torch.load(f, map_location=torch.device('cpu'))
     x['optimizer'] = None
     x['training_results'] = None
     x['epoch'] = -1
-    #x['model'].half()  # to FP16
-    #for p in x['model'].parameters():
+    # x['model'].half()  # to FP16
+    # for p in x['model'].parameters():
     #    p.requires_grad = False
     torch.save(x, s or f)
     mb = os.path.getsize(s or f) / 1E6  # filesize

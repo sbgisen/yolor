@@ -23,8 +23,8 @@ from copy import deepcopy
 from pycocotools import mask as maskUtils
 from torchvision.utils import save_image
 
-from utils.general import xyxy2xywh, xywh2xyxy
-from utils.torch_utils import torch_distributed_zero_first
+from yolor.utils.general import xyxy2xywh, xywh2xyxy
+from yolor.utils.torch_utils import torch_distributed_zero_first
 
 # Parameters
 help_url = 'https://github.com/ultralytics/yolov5/wiki/Train-Custom-Data'
@@ -51,7 +51,7 @@ def exif_size(img):
             s = (s[1], s[0])
         elif rotation == 8:  # rotation 90
             s = (s[1], s[0])
-    except:
+    except BaseException:
         pass
 
     return s
@@ -84,18 +84,18 @@ def create_dataloader(path, imgsz, batch_size, stride, opt, hyp=None, augment=Fa
 
 
 def create_dataloader9(path, imgsz, batch_size, stride, opt, hyp=None, augment=False, cache=False, pad=0.0, rect=False,
-                      rank=-1, world_size=1, workers=8):
+                       rank=-1, world_size=1, workers=8):
     # Make sure only the first process in DDP process the dataset first, and the following others can use the cache
     with torch_distributed_zero_first(rank):
         dataset = LoadImagesAndLabels9(path, imgsz, batch_size,
-                                      augment=augment,  # augment images
-                                      hyp=hyp,  # augmentation hyperparameters
-                                      rect=rect,  # rectangular training
-                                      cache_images=cache,
-                                      single_cls=opt.single_cls,
-                                      stride=int(stride),
-                                      pad=pad,
-                                      rank=rank)
+                                       augment=augment,  # augment images
+                                       hyp=hyp,  # augmentation hyperparameters
+                                       rect=rect,  # rectangular training
+                                       cache_images=cache,
+                                       single_cls=opt.single_cls,
+                                       stride=int(stride),
+                                       pad=pad,
+                                       rank=rank)
 
     batch_size = min(batch_size, len(dataset))
     nw = min([os.cpu_count() // world_size, batch_size if batch_size > 1 else 0, workers])  # number of workers
@@ -920,7 +920,7 @@ class LoadImagesAndLabels9(Dataset):  # for training/testing
         return torch.stack(img, 0), torch.cat(label, 0), path, shapes
 
 
-# Ancillary functions --------------------------------------------------------------------------------------------------
+# Ancillary functions ----------------------------------------------------
 def load_image(self, index):
     # loads 1 image from dataset, returns img, original hw, resized hw
     img = self.imgs[index]
@@ -1106,7 +1106,19 @@ def replicate(img, labels):
     return img, labels
 
 
-def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleFill=False, scaleup=True, auto_size=32):
+def letterbox(
+        img,
+        new_shape=(
+            640,
+            640),
+    color=(
+            114,
+            114,
+            114),
+        auto=True,
+        scaleFill=False,
+        scaleup=True,
+        auto_size=32):
     # Resize image to a 32-pixel-multiple rectangle https://github.com/ultralytics/yolov3/issues/232
     shape = img.shape[:2]  # current shape [height, width]
     if isinstance(new_shape, int):
@@ -1293,5 +1305,3 @@ def flatten_recursive(path='../coco128'):
     create_folder(new_path)
     for file in tqdm(glob.glob(str(Path(path)) + '/**/*.*', recursive=True)):
         shutil.copyfile(file, new_path / Path(file).name)
-
-
